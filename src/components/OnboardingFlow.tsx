@@ -1,130 +1,123 @@
 
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import OnboardingCard from './OnboardingCard';
+import { Card, CardContent } from '@/components/ui/card';
+import { ChevronLeft, ChevronRight, Mic, Video, MessageCircle, Coins, Trophy } from 'lucide-react';
 
 interface OnboardingFlowProps {
   onComplete: () => void;
 }
 
 const OnboardingFlow = ({ onComplete }: OnboardingFlowProps) => {
-  const [currentCard, setCurrentCard] = useState(0);
+  const [currentSlide, setCurrentSlide] = useState(0);
 
-  const cards = [
+  const slides = [
     {
-      id: 1,
-      icon: '🎙️',
-      title: 'Voice & Video Match',
-      description: 'Meet new people through real-time voice or video. If both tap "Vibe!", chat gets unlocked.',
-      animation: 'pulse-faces'
+      icon: <img src="/lovable-uploads/21c984fb-31a9-430f-9f70-22f433932191.png" alt="VocaLink" className="w-32 h-32 mx-auto mb-6" />,
+      title: "Welcome to VocaLink Pro",
+      subtitle: "Connect Through Voice & Vibe",
+      description: "Your ultimate voice-first social experience",
+      gradient: "from-purple-600 to-blue-600"
     },
     {
-      id: 2,
-      icon: '💬',
-      title: 'Anonymous Random Chat',
-      description: 'Start a private, anonymous text chat with someone new. Swipe to skip anytime.',
-      animation: 'floating-bubbles'
+      icon: <Mic className="w-20 h-20 text-purple-400 mx-auto mb-6 animate-pulse" />,
+      title: "Voice & Video Match",
+      subtitle: "Tap Vibe to Connect!",
+      description: "Instantly match with people through voice or video calls",
+      gradient: "from-pink-600 to-purple-600"
     },
     {
-      id: 3,
-      icon: '🗣️',
-      title: 'Public Voice Rooms',
-      description: 'Join or host live topic-based voice rooms. Request mic, react, and vibe with many.',
-      animation: 'voice-waves'
+      icon: <MessageCircle className="w-20 h-20 text-blue-400 mx-auto mb-6 animate-bounce" />,
+      title: "Anonymous Text Chat",
+      subtitle: "Chat Without Revealing Info",
+      description: "Connect anonymously and let your personality shine",
+      gradient: "from-blue-600 to-cyan-600"
     },
     {
-      id: 4,
-      icon: '🎮',
-      title: 'Earn Coins & XP',
-      description: 'Spin the wheel, win coins, and level up! Use coins to skip, boost, and unlock features.',
-      animation: 'spinning-wheel'
+      icon: <Video className="w-20 h-20 text-green-400 mx-auto mb-6 animate-pulse" />,
+      title: "Public Voice Rooms",
+      subtitle: "Join or Create Live Audio Spaces",
+      description: "Host your own room or join interesting conversations",
+      gradient: "from-green-600 to-teal-600"
     },
     {
-      id: 5,
-      icon: '🏆',
-      title: 'Build Profile & Leaderboard',
-      description: 'Upload a profile pic, voice bio, and vibe tags. Rank on the weekly XP leaderboard!',
-      animation: 'rising-bar'
+      icon: <Coins className="w-20 h-20 text-yellow-400 mx-auto mb-6 animate-spin" />,
+      title: "XP & Coins System",
+      subtitle: "Earn and Level Up",
+      description: "Gain experience points and coins for every interaction",
+      gradient: "from-yellow-600 to-orange-600"
+    },
+    {
+      icon: <Trophy className="w-20 h-20 text-purple-400 mx-auto mb-6 animate-bounce" />,
+      title: "Leaderboard & Profile",
+      subtitle: "Show Off Your Voice Vibe",
+      description: "Compete with others and build your reputation",
+      gradient: "from-purple-600 to-pink-600"
     }
   ];
 
-  const nextCard = () => {
-    if (currentCard < cards.length - 1) {
-      setCurrentCard(currentCard + 1);
+  const nextSlide = () => {
+    if (currentSlide < slides.length - 1) {
+      setCurrentSlide(currentSlide + 1);
+    } else {
+      onComplete();
     }
   };
 
-  const prevCard = () => {
-    if (currentCard > 0) {
-      setCurrentCard(currentCard - 1);
+  const prevSlide = () => {
+    if (currentSlide > 0) {
+      setCurrentSlide(currentSlide - 1);
     }
   };
-
-  const isLastCard = currentCard === cards.length - 1;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex flex-col">
-      {/* Header */}
-      <div className="flex justify-between items-center p-6">
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
-            <span className="text-white font-bold text-sm">V</span>
-          </div>
-          <h1 className="text-white text-xl font-bold">VocaLink Pro</h1>
-        </div>
-        <div className="flex space-x-2">
-          {cards.map((_, index) => (
-            <div
-              key={index}
-              className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                index === currentCard
-                  ? 'bg-purple-400 w-6'
-                  : 'bg-gray-600'
-              }`}
-            />
-          ))}
-        </div>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center p-6">
+      <div className="w-full max-w-md">
+        <Card className="bg-black/40 backdrop-blur-lg border-gray-700/50 overflow-hidden">
+          <CardContent className="p-0">
+            <div className={`bg-gradient-to-r ${slides[currentSlide].gradient} p-8 text-center`}>
+              {slides[currentSlide].icon}
+              <h2 className="text-2xl font-bold text-white mb-2">{slides[currentSlide].title}</h2>
+              <p className="text-white/90 font-medium mb-2">{slides[currentSlide].subtitle}</p>
+              <p className="text-white/70 text-sm">{slides[currentSlide].description}</p>
+            </div>
+            
+            <div className="p-6">
+              {/* Progress Dots */}
+              <div className="flex justify-center space-x-2 mb-6">
+                {slides.map((_, index) => (
+                  <div
+                    key={index}
+                    className={`w-2 h-2 rounded-full transition-colors ${
+                      index === currentSlide ? 'bg-purple-500' : 'bg-gray-600'
+                    }`}
+                  />
+                ))}
+              </div>
 
-      {/* Card Container */}
-      <div className="flex-1 flex items-center justify-center px-6">
-        <div className="w-full max-w-md">
-          <OnboardingCard 
-            card={cards[currentCard]} 
-            isActive={true}
-          />
-        </div>
-      </div>
+              {/* Navigation */}
+              <div className="flex justify-between items-center">
+                <Button
+                  onClick={prevSlide}
+                  variant="ghost"
+                  className="text-gray-400 hover:text-white"
+                  disabled={currentSlide === 0}
+                >
+                  <ChevronLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
 
-      {/* Navigation */}
-      <div className="p-6 flex justify-between items-center">
-        <Button
-          variant="ghost"
-          onClick={prevCard}
-          disabled={currentCard === 0}
-          className="text-gray-400 hover:text-white disabled:opacity-30"
-        >
-          <ChevronLeft className="w-5 h-5 mr-1" />
-          Back
-        </Button>
-
-        {isLastCard ? (
-          <Button
-            onClick={onComplete}
-            className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white px-8 py-3 rounded-full font-semibold shadow-lg hover:shadow-purple-500/25 transition-all duration-300 animate-pulse"
-          >
-            Get Started ✨
-          </Button>
-        ) : (
-          <Button
-            onClick={nextCard}
-            className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white px-6 py-3 rounded-full font-semibold"
-          >
-            Next
-            <ChevronRight className="w-5 h-5 ml-1" />
-          </Button>
-        )}
+                <Button
+                  onClick={nextSlide}
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white"
+                >
+                  {currentSlide === slides.length - 1 ? 'Get Started' : 'Next'}
+                  {currentSlide !== slides.length - 1 && <ChevronRight className="w-4 h-4 ml-2" />}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
