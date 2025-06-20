@@ -1,7 +1,8 @@
+
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Mic, Video, MessageCircle, Heart, X, Flag, MicOff, VideoOff } from 'lucide-react';
+import { Mic, Video, MessageCircle, Heart, X, Flag, StopCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'react-hot-toast';
@@ -25,7 +26,7 @@ const MatchScreen = () => {
       interval = setInterval(() => {
         setTimer(prev => prev - 1);
       }, 1000);
-    } else if (timer === 0) {
+    } else if (timer === 0 && currentMatch) {
       handleSkip();
     }
     return () => clearInterval(interval);
@@ -70,6 +71,26 @@ const MatchScreen = () => {
       console.error('Error starting match:', error);
       toast.error('Failed to start matching');
       setIsMatching(false);
+    }
+  };
+
+  const stopMatching = async () => {
+    if (!user || !isMatching) return;
+
+    try {
+      // Remove user from match pool
+      await supabase
+        .from('match_pool')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('status', 'waiting');
+
+      setIsMatching(false);
+      setMatchType(null);
+      toast.success('⏹️ Stopped matching');
+    } catch (error) {
+      console.error('Error stopping match:', error);
+      toast.error('Failed to stop matching');
     }
   };
 
@@ -133,7 +154,7 @@ const MatchScreen = () => {
         .update({ status: 'skipped' })
         .eq('id', currentMatch.id);
 
-      // Deduct coin or show ad
+      // Deduct coin
       if (profile && profile.coins > 0) {
         await supabase.rpc('update_user_coins', {
           user_id: user.id,
@@ -145,6 +166,7 @@ const MatchScreen = () => {
 
       setCurrentMatch(null);
       setMatchType(null);
+      setTimer(30);
       toast.success('⏭️ Skipped to next person');
     } catch (error) {
       console.error('Error skipping:', error);
@@ -157,11 +179,12 @@ const MatchScreen = () => {
     setCurrentMatch(null);
     setMatchType(null);
     setMatchResult(null);
+    setTimer(30);
   };
 
   const handleOpenChat = () => {
-    // This would navigate to chat screen with the match
     toast.success('Opening chat...');
+    // Navigate to chat would happen here
   };
 
   const handleStartVoiceRoom = () => {
@@ -191,6 +214,7 @@ const MatchScreen = () => {
     );
   }
 
+  // Current match screen
   if (currentMatch) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex flex-col items-center justify-center p-6 relative overflow-hidden">
@@ -228,14 +252,12 @@ const MatchScreen = () => {
                 <div className="w-32 h-32 bg-gradient-to-br from-purple-500 via-blue-500 to-cyan-500 rounded-full mx-auto flex items-center justify-center animate-pulse shadow-lg shadow-purple-500/25">
                   <span className="text-4xl">👤</span>
                 </div>
-                {/* Glow effect */}
                 <div className="absolute inset-0 w-32 h-32 mx-auto bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-full animate-ping"></div>
               </div>
               
               <h3 className="text-2xl font-bold text-white mb-3 tracking-tight">Anonymous User</h3>
               <p className="text-gray-300 mb-4">Say hi and see if you vibe!</p>
               
-              {/* Mode Indicator */}
               <div className="flex justify-center mb-4">
                 <div className="flex items-center space-x-2 bg-gray-800/50 rounded-full px-4 py-2">
                   {matchType === 'voice' && <Mic className="w-4 h-4 text-purple-400" />}
@@ -249,13 +271,15 @@ const MatchScreen = () => {
 
           {/* Voice Connection Button for voice matches */}
           {matchType === 'voice' && (
-            <Button
-              onClick={handleStartVoiceRoom}
-              className="mb-4 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-6 py-2 rounded-full"
-            >
-              <Mic className="w-4 h-4 mr-2" />
-              Start Voice Chat
-            </Button>
+            <div className="text-center mb-4">
+              <Button
+                onClick={handleStartVoiceRoom}
+                className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-6 py-2 rounded-full"
+              >
+                <Mic className="w-4 h-4 mr-2" />
+                Start Voice Chat
+              </Button>
+            </div>
           )}
 
           {/* Action Buttons */}
@@ -285,7 +309,6 @@ const MatchScreen = () => {
             </Button>
           </div>
 
-          {/* Swipe Hint */}
           <div className="text-center mt-8">
             <div className="text-gray-400 text-sm animate-pulse">
               Swipe or tap to interact
@@ -296,6 +319,7 @@ const MatchScreen = () => {
     );
   }
 
+  // Main matching screen
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex flex-col items-center justify-center p-6 relative overflow-hidden">
       {/* Animated Background */}
@@ -318,11 +342,12 @@ const MatchScreen = () => {
             <button
               key={mode}
               onClick={() => setSelectedMode(mode)}
+              disabled={isMatching}
               className={`flex-1 py-3 px-4 rounded-xl transition-all duration-300 ${
                 selectedMode === mode
                   ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-lg transform scale-105'
                   : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
-              }`}
+              } ${isMatching ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <div className="flex flex-col items-center space-y-1">
                 {mode === 'voice' && <Mic className="w-5 h-5" />}
@@ -334,27 +359,37 @@ const MatchScreen = () => {
           ))}
         </div>
 
-        {/* Match Button */}
+        {/* Match Button or Stop Button */}
         <div className="text-center mb-8">
-          <Button
-            onClick={() => startMatching(selectedMode)}
-            disabled={isMatching}
-            className="w-40 h-40 rounded-full bg-gradient-to-br from-purple-500 via-blue-500 to-cyan-500 hover:from-purple-600 hover:via-blue-600 hover:to-cyan-600 text-white font-bold text-xl transition-all duration-300 transform hover:scale-110 shadow-2xl shadow-purple-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isMatching ? (
-              <div className="flex flex-col items-center space-y-2">
-                <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
-                <span className="text-sm">Matching...</span>
-              </div>
-            ) : (
+          {!isMatching ? (
+            <Button
+              onClick={() => startMatching(selectedMode)}
+              className="w-40 h-40 rounded-full bg-gradient-to-br from-purple-500 via-blue-500 to-cyan-500 hover:from-purple-600 hover:via-blue-600 hover:to-cyan-600 text-white font-bold text-xl transition-all duration-300 transform hover:scale-110 shadow-2xl shadow-purple-500/25"
+            >
               <div className="flex flex-col items-center space-y-2">
                 {selectedMode === 'voice' && <Mic className="w-10 h-10" />}
                 {selectedMode === 'video' && <Video className="w-10 h-10" />}
                 {selectedMode === 'text' && <MessageCircle className="w-10 h-10" />}
                 <span>Match Now</span>
               </div>
-            )}
-          </Button>
+            </Button>
+          ) : (
+            <div className="flex flex-col items-center space-y-4">
+              <Button
+                onClick={stopMatching}
+                className="w-40 h-40 rounded-full bg-gradient-to-br from-red-500 via-pink-500 to-red-600 hover:from-red-600 hover:via-pink-600 hover:to-red-700 text-white font-bold text-xl transition-all duration-300 transform hover:scale-110 shadow-2xl shadow-red-500/25"
+              >
+                <div className="flex flex-col items-center space-y-2">
+                  <StopCircle className="w-10 h-10" />
+                  <span>Stop</span>
+                </div>
+              </Button>
+              <div className="flex flex-col items-center space-y-2">
+                <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
+                <span className="text-sm text-white">Matching...</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Loading State with Animation */}
