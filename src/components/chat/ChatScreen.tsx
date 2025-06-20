@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { MessageCircle, Send, Mic, Smile, Search, Plus } from 'lucide-react';
+import { MessageCircle, Send, Search, Plus, Coins } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'react-hot-toast';
@@ -30,12 +30,13 @@ interface Message {
 }
 
 const ChatScreen = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [showAdReward, setShowAdReward] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -48,32 +49,47 @@ const ChatScreen = () => {
       // Get matches where chat is unlocked
       const { data: matches, error } = await supabase
         .from('matches')
-        .select(`
-          *,
-          user1:profiles!matches_user1_id_fkey(id, name, profile_picture_url),
-          user2:profiles!matches_user2_id_fkey(id, name, profile_picture_url)
-        `)
+        .select('*')
         .eq('chat_unlocked', true)
         .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
 
-      const chatList: Chat[] = matches?.map(match => {
-        const otherUser = match.user1_id === user.id ? match.user2 : match.user1;
-        return {
-          id: match.id,
-          match_id: match.id,
-          other_user: {
-            id: otherUser.id,
-            name: otherUser.name,
-            profile_picture_url: otherUser.profile_picture_url
-          },
-          last_message: 'Start chatting...',
-          last_message_time: match.updated_at,
-          unread_count: 0
-        };
-      }) || [];
+      if (!matches) {
+        setChats([]);
+        setLoading(false);
+        return;
+      }
+
+      // Get user profiles for each match
+      const chatList: Chat[] = [];
+      
+      for (const match of matches) {
+        const otherUserId = match.user1_id === user.id ? match.user2_id : match.user1_id;
+        
+        // Get the other user's profile
+        const { data: otherUserProfile } = await supabase
+          .from('profiles')
+          .select('id, name, profile_picture_url')
+          .eq('id', otherUserId)
+          .single();
+
+        if (otherUserProfile) {
+          chatList.push({
+            id: match.id,
+            match_id: match.id,
+            other_user: {
+              id: otherUserProfile.id,
+              name: otherUserProfile.name,
+              profile_picture_url: otherUserProfile.profile_picture_url
+            },
+            last_message: 'Start chatting...',
+            last_message_time: match.updated_at,
+            unread_count: 0
+          });
+        }
+      }
 
       setChats(chatList);
       setLoading(false);
@@ -128,10 +144,54 @@ const ChatScreen = () => {
     loadMessages(chat.match_id);
   };
 
+  const watchAdForCoins = async () => {
+    setShowAdReward(true);
+    
+    // Simulate ad watching (3 seconds)
+    setTimeout(async () => {
+      try {
+        // Award 3 coins for watching ad
+        await supabase.rpc('update_user_coins', {
+          user_id: user.id,
+          coin_amount: 3,
+          transaction_type: 'earned',
+          reason: 'Watched advertisement'
+        });
+        
+        setShowAdReward(false);
+        toast.success('🪙 +3 Coins earned! Thanks for watching!');
+      } catch (error) {
+        console.error('Error awarding coins:', error);
+        toast.error('Failed to award coins');
+        setShowAdReward(false);
+      }
+    }, 3000);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-500"></div>
+      </div>
+    );
+  }
+
+  // Ad Reward Modal
+  if (showAdReward) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center p-6">
+        <Card className="bg-black/60 backdrop-blur-xl border-yellow-500/50 max-w-sm w-full">
+          <CardContent className="text-center py-12">
+            <div className="w-20 h-20 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full mx-auto mb-4 flex items-center justify-center animate-bounce">
+              <Coins className="w-10 h-10 text-white" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Watching Ad...</h3>
+            <p className="text-gray-300 mb-4">Get ready to earn 3 coins!</p>
+            <div className="w-full bg-gray-700 rounded-full h-2">
+              <div className="bg-gradient-to-r from-yellow-400 to-orange-500 h-2 rounded-full animate-pulse" style={{width: '100%'}}></div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -141,24 +201,35 @@ const ChatScreen = () => {
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex flex-col">
         {/* Chat Header */}
         <div className="bg-black/40 backdrop-blur-xl border-b border-gray-700/50 p-4">
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Button
+                onClick={() => setSelectedChat(null)}
+                variant="ghost"
+                size="sm"
+                className="text-gray-400 hover:text-white"
+              >
+                ←
+              </Button>
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+                <span className="text-white font-bold">
+                  {selectedChat.other_user.name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <div>
+                <h3 className="text-white font-semibold">{selectedChat.other_user.name}</h3>
+                <p className="text-gray-400 text-sm">Online</p>
+              </div>
+            </div>
+            
+            {/* Watch Ad Button */}
             <Button
-              onClick={() => setSelectedChat(null)}
-              variant="ghost"
-              size="sm"
-              className="text-gray-400 hover:text-white"
+              onClick={watchAdForCoins}
+              className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white px-3 py-1 text-sm rounded-full"
             >
-              ←
+              <Coins className="w-4 h-4 mr-1" />
+              Watch Ad
             </Button>
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
-              <span className="text-white font-bold">
-                {selectedChat.other_user.name.charAt(0).toUpperCase()}
-              </span>
-            </div>
-            <div>
-              <h3 className="text-white font-semibold">{selectedChat.other_user.name}</h3>
-              <p className="text-gray-400 text-sm">Online</p>
-            </div>
           </div>
         </div>
 
@@ -217,9 +288,29 @@ const ChatScreen = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 p-6">
       {/* Header */}
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Messages</h1>
-        <p className="text-gray-300">Your conversations</p>
+      <div className="flex items-center justify-between mb-8">
+        <div className="text-center flex-1">
+          <h1 className="text-3xl font-bold text-white mb-2">Messages</h1>
+          <p className="text-gray-300">Your conversations</p>
+        </div>
+        
+        {/* Watch Ad Button - Top Right */}
+        <Button
+          onClick={watchAdForCoins}
+          className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white px-4 py-2 rounded-full font-semibold shadow-lg"
+        >
+          <Coins className="w-4 h-4 mr-2" />
+          Watch Ad (+3)
+        </Button>
+      </div>
+
+      {/* Coin Balance Display */}
+      <div className="text-center mb-6">
+        <div className="inline-flex items-center bg-black/40 backdrop-blur-xl rounded-full px-6 py-3 border border-yellow-500/30">
+          <Coins className="w-6 h-6 text-yellow-400 mr-2 animate-pulse" />
+          <span className="text-2xl font-bold text-yellow-400">{profile?.coins || 0}</span>
+          <span className="text-gray-300 ml-2">Coins</span>
+        </div>
       </div>
 
       {/* Search */}
