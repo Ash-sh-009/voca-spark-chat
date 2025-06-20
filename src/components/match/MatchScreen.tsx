@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -6,6 +5,8 @@ import { Mic, Video, MessageCircle, Heart, X, Flag, MicOff, VideoOff } from 'luc
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'react-hot-toast';
+import PostMatchScreen from './PostMatchScreen';
+import AgoraVoiceRoom from '../agora/AgoraVoiceRoom';
 
 const MatchScreen = () => {
   const { user, profile } = useAuth();
@@ -14,6 +15,9 @@ const MatchScreen = () => {
   const [currentMatch, setCurrentMatch] = useState<any>(null);
   const [timer, setTimer] = useState(30);
   const [selectedMode, setSelectedMode] = useState<'voice' | 'video' | 'text'>('voice');
+  const [showPostMatch, setShowPostMatch] = useState(false);
+  const [showVoiceRoom, setShowVoiceRoom] = useState(false);
+  const [matchResult, setMatchResult] = useState<'both_vibed' | 'waiting' | null>(null);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -93,11 +97,25 @@ const MatchScreen = () => {
       if (match?.user1_vibed && match?.user2_vibed) {
         await supabase
           .from('matches')
-          .update({ chat_unlocked: true })
+          .update({ 
+            chat_unlocked: true,
+            status: 'matched'
+          })
           .eq('id', currentMatch.id);
+        
+        setMatchResult('both_vibed');
+        setShowPostMatch(true);
+        
+        // Award XP for successful match
+        await supabase.rpc('update_user_xp', {
+          user_id: user.id,
+          xp_gain: 10,
+          reason: 'Successful match'
+        });
         
         toast.success('🎉 It\'s a Vibe! Chat unlocked!');
       } else {
+        setMatchResult('waiting');
         toast.success('💖 You vibed! Waiting for the other person...');
       }
     } catch (error) {
@@ -133,6 +151,45 @@ const MatchScreen = () => {
       toast.error('Failed to skip');
     }
   };
+
+  const handleBackToMatching = () => {
+    setShowPostMatch(false);
+    setCurrentMatch(null);
+    setMatchType(null);
+    setMatchResult(null);
+  };
+
+  const handleOpenChat = () => {
+    // This would navigate to chat screen with the match
+    toast.success('Opening chat...');
+  };
+
+  const handleStartVoiceRoom = () => {
+    if (matchType === 'voice' && currentMatch) {
+      setShowVoiceRoom(true);
+    }
+  };
+
+  // Show post-match screen
+  if (showPostMatch && currentMatch && matchResult === 'both_vibed') {
+    return (
+      <PostMatchScreen
+        match={currentMatch}
+        onBack={handleBackToMatching}
+        onOpenChat={handleOpenChat}
+      />
+    );
+  }
+
+  // Show voice room for voice matches
+  if (showVoiceRoom && currentMatch) {
+    return (
+      <AgoraVoiceRoom
+        channelName={`match_${currentMatch.id}`}
+        onLeave={() => setShowVoiceRoom(false)}
+      />
+    );
+  }
 
   if (currentMatch) {
     return (
@@ -189,6 +246,17 @@ const MatchScreen = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Voice Connection Button for voice matches */}
+          {matchType === 'voice' && (
+            <Button
+              onClick={handleStartVoiceRoom}
+              className="mb-4 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-6 py-2 rounded-full"
+            >
+              <Mic className="w-4 h-4 mr-2" />
+              Start Voice Chat
+            </Button>
+          )}
 
           {/* Action Buttons */}
           <div className="flex justify-center items-center space-x-6">
