@@ -35,7 +35,7 @@ const OnboardingFlow = ({ onComplete }: OnboardingFlowProps) => {
         name: profileData.name,
         age: parseInt(profileData.age),
         bio: profileData.bio,
-        interests: selectedInterests,
+        interest: selectedInterests.join(', '), // Convert array to string for the existing schema
         profile_picture_url: profileData.profileImage,
         mood_tags: selectedInterests.slice(0, 3) // First 3 interests as mood tags
       });

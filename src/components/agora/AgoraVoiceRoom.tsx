@@ -18,8 +18,8 @@ const AgoraVoiceRoom = ({ channelName, token, onLeave }: AgoraVoiceRoomProps) =>
   const [isMuted, setIsMuted] = useState(false);
   const [remoteUsers, setRemoteUsers] = useState<any[]>([]);
 
-  // Agora App ID - you'll need to get this from Agora Console
-  const APP_ID = process.env.REACT_APP_AGORA_APP_ID || 'your-agora-app-id';
+  // Use the correct Agora App ID
+  const APP_ID = '847d6ec057f344aa9feee65779df4986';
 
   useEffect(() => {
     const initAgora = async () => {
