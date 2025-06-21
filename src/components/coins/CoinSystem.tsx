@@ -1,8 +1,7 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Coins, Play, Gift, Zap, Star, Award } from 'lucide-react';
+import { Coins, Play, Gift, Zap, Star, Award, Video } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'react-hot-toast';
@@ -20,7 +19,17 @@ const CoinSystem = () => {
   const [transactions, setTransactions] = useState<CoinTransaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAdReward, setShowAdReward] = useState(false);
+  const [showSpinWheel, setShowSpinWheel] = useState(false);
+  const [spinResult, setSpinResult] = useState(0);
   const [dailyAdsWatched, setDailyAdsWatched] = useState(0);
+  const [adType, setAdType] = useState<'banner' | 'interstitial' | 'rewarded'>('rewarded');
+
+  // Your AdMob IDs (from requirements)
+  const adMobIds = {
+    banner: 'ca-app-pub-4263991206924311/7662596461',
+    interstitial: 'ca-app-pub-4263991206924311/9879095061',
+    rewarded: 'ca-app-pub-4263991206924311/9879095061'
+  };
 
   useEffect(() => {
     if (user) {
@@ -51,7 +60,8 @@ const CoinSystem = () => {
     setDailyAdsWatched(parseInt(storedData || '0'));
   };
 
-  const watchAdForCoins = async () => {
+  // Simulate AdMob Rewarded Ad
+  const watchRewardedAd = async () => {
     if (dailyAdsWatched >= 10) {
       toast.error('Daily ad limit reached! Come back tomorrow.');
       return;
@@ -60,15 +70,17 @@ const CoinSystem = () => {
     setShowAdReward(true);
     setLoading(true);
     
-    // Simulate ad watching (3 seconds)
+    // Show ad simulation (realistic 30-second ad)
+    toast.success(`📺 Loading AdMob Rewarded Ad (ID: ${adMobIds.rewarded})`);
+    
     setTimeout(async () => {
       try {
-        // Award 3 coins for watching ad
+        // Award 5 coins for watching rewarded ad
         await supabase.rpc('update_user_coins', {
           user_id: user?.id,
-          coin_amount: 3,
+          coin_amount: 5,
           transaction_type: 'earned',
-          reason: 'Watched advertisement'
+          reason: 'Watched rewarded video ad'
         });
         
         // Update daily ad count
@@ -80,13 +92,21 @@ const CoinSystem = () => {
         setShowAdReward(false);
         setLoading(false);
         loadTransactions();
-        toast.success('🪙 +3 Coins earned! Thanks for watching!');
+        toast.success('🪙 +5 Coins earned from AdMob! Thanks for watching!');
       } catch (error) {
         console.error('Error awarding coins:', error);
         toast.error('Failed to award coins');
         setShowAdReward(false);
         setLoading(false);
       }
+    }, 5000); // 5 second ad simulation
+  };
+
+  // Show Interstitial Ad (between actions)
+  const showInterstitialAd = () => {
+    toast.success(`📱 AdMob Interstitial Ad shown (ID: ${adMobIds.interstitial})`);
+    setTimeout(() => {
+      toast.success('✅ Interstitial ad completed');
     }, 3000);
   };
 
@@ -97,6 +117,12 @@ const CoinSystem = () => {
     }
 
     setLoading(true);
+    setShowSpinWheel(true);
+    
+    // Show interstitial ad 20% of the time
+    if (Math.random() < 0.2) {
+      showInterstitialAd();
+    }
     
     try {
       // Deduct 5 coins for spin
@@ -107,22 +133,34 @@ const CoinSystem = () => {
         reason: 'Spin wheel game'
       });
 
-      // Random reward (1-20 coins)
-      const reward = Math.floor(Math.random() * 20) + 1;
+      // Random reward (1-100 coins with weighted distribution)
+      const rand = Math.random();
+      let reward;
+      if (rand < 0.4) reward = Math.floor(Math.random() * 10) + 1; // 1-10 coins (40%)
+      else if (rand < 0.7) reward = Math.floor(Math.random() * 20) + 11; // 11-30 coins (30%)
+      else if (rand < 0.9) reward = Math.floor(Math.random() * 30) + 31; // 31-60 coins (20%)
+      else reward = Math.floor(Math.random() * 40) + 61; // 61-100 coins (10%)
       
-      // Award the reward
-      await supabase.rpc('update_user_coins', {
-        user_id: user?.id,
-        coin_amount: reward,
-        transaction_type: 'earned',
-        reason: 'Spin wheel reward'
-      });
+      setSpinResult(reward);
+      
+      // Award the reward after spin animation
+      setTimeout(async () => {
+        await supabase.rpc('update_user_coins', {
+          user_id: user?.id,
+          coin_amount: reward,
+          transaction_type: 'earned',
+          reason: 'Spin wheel reward'
+        });
 
-      loadTransactions();
-      toast.success(`🎉 Wheel spin won you ${reward} coins!`);
+        loadTransactions();
+        setShowSpinWheel(false);
+        toast.success(`🎉 Wheel spin won you ${reward} coins!`);
+      }, 3000);
+      
     } catch (error) {
       console.error('Error spinning wheel:', error);
       toast.error('Failed to spin wheel');
+      setShowSpinWheel(false);
     } finally {
       setLoading(false);
     }
@@ -161,15 +199,18 @@ const CoinSystem = () => {
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center p-6">
         <Card className="bg-black/60 backdrop-blur-xl border-yellow-500/50 max-w-sm w-full">
           <CardContent className="text-center py-12">
-            <div className="w-20 h-20 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full mx-auto mb-4 flex items-center justify-center animate-bounce">
-              <Play className="w-10 h-10 text-white" />
+            <div className="w-20 h-20 bg-gradient-to-br from-red-500 to-yellow-500 rounded-full mx-auto mb-4 flex items-center justify-center animate-bounce">
+              <Video className="w-10 h-10 text-white" />
             </div>
-            <h3 className="text-xl font-bold text-white mb-2">Watching Ad...</h3>
-            <p className="text-gray-300 mb-4">Get ready to earn 3 coins!</p>
-            <div className="w-full bg-gray-700 rounded-full h-2">
-              <div className="bg-gradient-to-r from-yellow-400 to-orange-500 h-2 rounded-full animate-pulse" style={{width: '100%'}}></div>
+            <h3 className="text-xl font-bold text-white mb-2">AdMob Rewarded Ad</h3>
+            <p className="text-gray-300 mb-4">Watch this 30-second video to earn 5 coins!</p>
+            <div className="w-full bg-gray-700 rounded-full h-3 mb-4">
+              <div className="bg-gradient-to-r from-red-500 to-yellow-500 h-3 rounded-full animate-pulse" style={{width: '100%'}}></div>
             </div>
-            <p className="text-sm text-gray-400 mt-2">
+            <p className="text-sm text-gray-400">
+              Ad ID: {adMobIds.rewarded}
+            </p>
+            <p className="text-xs text-gray-500 mt-2">
               Ads watched today: {dailyAdsWatched}/10
             </p>
           </CardContent>
@@ -178,15 +219,39 @@ const CoinSystem = () => {
     );
   }
 
+  // Spin Wheel Modal
+  if (showSpinWheel) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center p-6">
+        <Card className="bg-black/60 backdrop-blur-xl border-purple-500/50 max-w-sm w-full">
+          <CardContent className="text-center py-12">
+            <div className="w-32 h-32 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full mx-auto mb-4 flex items-center justify-center animate-spin">
+              <div className="w-24 h-24 bg-black rounded-full flex items-center justify-center">
+                <Zap className="w-12 h-12 text-purple-400" />
+              </div>
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Spinning...</h3>
+            <p className="text-gray-300 mb-4">🎰 Good luck!</p>
+            {spinResult > 0 && (
+              <div className="text-2xl font-bold text-yellow-400 animate-pulse">
+                +{spinResult} Coins!
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 p-6 pb-24">
       {/* Header */}
       <div className="text-center mb-8">
         <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-full mb-4">
           <Coins className="w-8 h-8 text-white" />
         </div>
         <h1 className="text-3xl font-bold text-white mb-2">Coin Store</h1>
-        <p className="text-gray-300">Earn and spend coins</p>
+        <p className="text-gray-300">Earn coins with ads and games</p>
       </div>
 
       {/* Current Balance */}
@@ -198,32 +263,40 @@ const CoinSystem = () => {
         </div>
       </div>
 
-      {/* Earn Coins Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        {/* Watch Ads */}
-        <Card className="bg-black/40 backdrop-blur-xl border-gray-700/50">
-          <CardHeader>
-            <CardTitle className="text-white flex items-center space-x-2">
-              <Play className="w-5 h-5 text-green-400" />
-              <span>Watch Ads</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-300 mb-4">Watch ads to earn coins</p>
-            <p className="text-sm text-gray-400 mb-4">
-              Daily limit: {dailyAdsWatched}/10 ads watched
-            </p>
+      {/* AdMob Integration Section */}
+      <Card className="bg-black/40 backdrop-blur-xl border-red-500/50 mb-6">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center space-x-2">
+            <Video className="w-5 h-5 text-red-400" />
+            <span>AdMob Ads</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="text-sm text-gray-300 space-y-1">
+              <p>🔴 Rewarded: {adMobIds.rewarded}</p>
+              <p>📱 Interstitial: {adMobIds.interstitial}</p>
+              <p>📊 Banner: {adMobIds.banner}</p>
+            </div>
+            
             <Button
-              onClick={watchAdForCoins}
+              onClick={watchRewardedAd}
               disabled={loading || dailyAdsWatched >= 10}
-              className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
+              className="w-full bg-gradient-to-r from-red-500 to-yellow-500 hover:from-red-600 hover:to-yellow-600"
             >
               <Play className="w-4 h-4 mr-2" />
-              Watch Ad (+3 Coins)
+              Watch Rewarded Ad (+5 Coins)
             </Button>
-          </CardContent>
-        </Card>
+            
+            <p className="text-xs text-gray-400 text-center">
+              Daily limit: {dailyAdsWatched}/10 ads watched
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
+      {/* Earn Coins Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         {/* Daily Bonus */}
         <Card className="bg-black/40 backdrop-blur-xl border-gray-700/50">
           <CardHeader>
@@ -244,22 +317,20 @@ const CoinSystem = () => {
             </Button>
           </CardContent>
         </Card>
-      </div>
 
-      {/* Games Section */}
-      <div className="grid grid-cols-1 gap-6 mb-8">
+        {/* Spin Wheel */}
         <Card className="bg-black/40 backdrop-blur-xl border-gray-700/50">
           <CardHeader>
             <CardTitle className="text-white flex items-center space-x-2">
               <Zap className="w-5 h-5 text-purple-400" />
-              <span>Spin the Wheel</span>
+              <span>Spin Wheel</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-gray-300 mb-1">Cost: 5 coins</p>
-                <p className="text-sm text-gray-400">Win 1-20 coins!</p>
+                <p className="text-sm text-gray-400">Win 1-100 coins!</p>
               </div>
               <Button
                 onClick={spinWheel}

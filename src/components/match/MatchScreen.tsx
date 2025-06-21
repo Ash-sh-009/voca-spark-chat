@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -19,6 +18,7 @@ const MatchScreen = () => {
   const [showPostMatch, setShowPostMatch] = useState(false);
   const [showVoiceRoom, setShowVoiceRoom] = useState(false);
   const [matchResult, setMatchResult] = useState<'both_vibed' | 'waiting' | null>(null);
+  const [subscription, setSubscription] = useState<any>(null);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -32,6 +32,15 @@ const MatchScreen = () => {
     return () => clearInterval(interval);
   }, [currentMatch, timer]);
 
+  // Cleanup subscription on unmount
+  useEffect(() => {
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
+  }, [subscription]);
+
   const startMatching = async (type: 'voice' | 'video' | 'text') => {
     if (!user) return;
     
@@ -39,6 +48,12 @@ const MatchScreen = () => {
     setIsMatching(true);
     
     try {
+      // Clean up any existing subscription first
+      if (subscription) {
+        subscription.unsubscribe();
+        setSubscription(null);
+      }
+
       // Add user to match pool
       const { error } = await supabase
         .from('match_pool')
@@ -50,14 +65,21 @@ const MatchScreen = () => {
 
       if (error) throw error;
 
-      // Listen for matches
+      // Create new subscription for matches
       const channel = supabase
-        .channel('match-updates')
+        .channel(`match-updates-${user.id}`, {
+          config: {
+            broadcast: { self: false },
+            presence: { key: user.id }
+          }
+        })
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
-          table: 'matches'
+          table: 'matches',
+          filter: `user1_id=eq.${user.id},user2_id=eq.${user.id}`
         }, (payload) => {
+          console.log('Match found:', payload);
           if (payload.new.user1_id === user.id || payload.new.user2_id === user.id) {
             setCurrentMatch(payload.new);
             setIsMatching(false);
@@ -65,6 +87,53 @@ const MatchScreen = () => {
           }
         })
         .subscribe();
+
+      setSubscription(channel);
+
+      // Try to find existing matches in pool
+      setTimeout(async () => {
+        try {
+          const { data: waitingUsers, error: poolError } = await supabase
+            .from('match_pool')
+            .select('*')
+            .eq('match_type', type)
+            .eq('status', 'waiting')
+            .neq('user_id', user.id)
+            .limit(1);
+
+          if (poolError) throw poolError;
+
+          if (waitingUsers && waitingUsers.length > 0) {
+            const otherUser = waitingUsers[0];
+            
+            // Create match
+            const { data: newMatch, error: matchError } = await supabase
+              .from('matches')
+              .insert({
+                user1_id: user.id,
+                user2_id: otherUser.user_id,
+                match_type: type,
+                status: 'active'
+              })
+              .select()
+              .single();
+
+            if (matchError) throw matchError;
+
+            // Remove both users from pool
+            await supabase
+              .from('match_pool')
+              .delete()
+              .in('user_id', [user.id, otherUser.user_id]);
+
+            setCurrentMatch(newMatch);
+            setIsMatching(false);
+            setTimer(30);
+          }
+        } catch (error) {
+          console.error('Error finding match:', error);
+        }
+      }, 2000);
 
       toast.success('🔍 Looking for someone awesome to connect with...');
     } catch (error) {
@@ -78,6 +147,12 @@ const MatchScreen = () => {
     if (!user || !isMatching) return;
 
     try {
+      // Clean up subscription
+      if (subscription) {
+        subscription.unsubscribe();
+        setSubscription(null);
+      }
+
       // Remove user from match pool
       await supabase
         .from('match_pool')
@@ -154,7 +229,7 @@ const MatchScreen = () => {
         .update({ status: 'skipped' })
         .eq('id', currentMatch.id);
 
-      // Deduct coin
+      // Deduct coin or show ad
       if (profile && profile.coins > 0) {
         await supabase.rpc('update_user_coins', {
           user_id: user.id,
@@ -162,6 +237,18 @@ const MatchScreen = () => {
           transaction_type: 'spent',
           reason: 'Skip match'
         });
+      } else {
+        // Show rewarded ad simulation
+        toast.success('🎥 Watch this ad to skip!');
+        setTimeout(async () => {
+          await supabase.rpc('update_user_coins', {
+            user_id: user.id,
+            coin_amount: 3,
+            transaction_type: 'earned',
+            reason: 'Watched skip ad'
+          });
+          toast.success('✅ Ad watched! +3 coins earned');
+        }, 3000);
       }
 
       setCurrentMatch(null);
