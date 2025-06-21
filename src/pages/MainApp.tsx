@@ -8,23 +8,13 @@ import RoomsScreen from '@/components/rooms/RoomsScreen';
 import CoinSystem from '@/components/coins/CoinSystem';
 import AnonymousChatScreen from '@/components/anonymous/AnonymousChatScreen';
 import BottomNavigation from '@/components/layout/BottomNavigation';
-import OnboardingFlow from '@/components/onboarding/OnboardingFlow';
 
 const MainApp = () => {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('match');
-  const [showOnboarding, setShowOnboarding] = useState(!profile?.name);
 
   if (!user) {
     return null;
-  }
-
-  if (showOnboarding) {
-    return (
-      <OnboardingFlow
-        onComplete={() => setShowOnboarding(false)}
-      />
-    );
   }
 
   const renderActiveScreen = () => {

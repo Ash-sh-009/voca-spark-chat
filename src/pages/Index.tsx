@@ -1,20 +1,26 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import OnboardingFlow from '@/components/OnboardingFlow';
+import OnboardingFlow from '@/components/onboarding/OnboardingFlow';
 import AuthScreen from '@/components/AuthScreen';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Index = () => {
-  const [showOnboarding, setShowOnboarding] = useState(true);
-  const { user, loading } = useAuth();
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (user && !loading) {
-      navigate('/app');
+      // If user is logged in but has no profile, show onboarding
+      if (!profile?.name) {
+        setShowOnboarding(true);
+      } else {
+        // User is fully set up, go to main app
+        navigate('/app');
+      }
     }
-  }, [user, loading, navigate]);
+  }, [user, profile, loading, navigate]);
 
   if (loading) {
     return (
@@ -24,11 +30,17 @@ const Index = () => {
     );
   }
 
-  if (showOnboarding) {
-    return <OnboardingFlow onComplete={() => setShowOnboarding(false)} />;
+  // Show onboarding if user is logged in but profile is incomplete
+  if (user && showOnboarding) {
+    return <OnboardingFlow onComplete={() => navigate('/app')} />;
   }
 
-  return <AuthScreen />;
+  // Show auth screen if no user
+  if (!user) {
+    return <AuthScreen />;
+  }
+
+  return null;
 };
 
 export default Index;
