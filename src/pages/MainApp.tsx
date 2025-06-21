@@ -6,14 +6,25 @@ import ChatScreen from '@/components/chat/ChatScreen';
 import ProfileScreen from '@/components/profile/ProfileScreen';
 import RoomsScreen from '@/components/rooms/RoomsScreen';
 import CoinSystem from '@/components/coins/CoinSystem';
+import AnonymousChatScreen from '@/components/anonymous/AnonymousChatScreen';
 import BottomNavigation from '@/components/layout/BottomNavigation';
+import OnboardingFlow from '@/components/onboarding/OnboardingFlow';
 
 const MainApp = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [activeTab, setActiveTab] = useState('match');
+  const [showOnboarding, setShowOnboarding] = useState(!profile?.name);
 
   if (!user) {
     return null;
+  }
+
+  if (showOnboarding) {
+    return (
+      <OnboardingFlow
+        onComplete={() => setShowOnboarding(false)}
+      />
+    );
   }
 
   const renderActiveScreen = () => {
@@ -24,6 +35,8 @@ const MainApp = () => {
         return <RoomsScreen />;
       case 'chat':
         return <ChatScreen />;
+      case 'anonymous':
+        return <AnonymousChatScreen />;
       case 'coins':
         return <CoinSystem />;
       case 'profile':

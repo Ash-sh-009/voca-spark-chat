@@ -172,6 +172,8 @@ export type Database = {
           gender: string
           id: string
           interest: string
+          interests: string[] | null
+          is_online: boolean | null
           last_login: string | null
           level: number | null
           mood_tags: string[] | null
@@ -191,6 +193,8 @@ export type Database = {
           gender: string
           id: string
           interest: string
+          interests?: string[] | null
+          is_online?: boolean | null
           last_login?: string | null
           level?: number | null
           mood_tags?: string[] | null
@@ -210,6 +214,8 @@ export type Database = {
           gender?: string
           id?: string
           interest?: string
+          interests?: string[] | null
+          is_online?: boolean | null
           last_login?: string | null
           level?: number | null
           mood_tags?: string[] | null
